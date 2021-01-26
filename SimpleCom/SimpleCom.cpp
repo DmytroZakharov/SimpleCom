@@ -12,6 +12,12 @@ static HANDLE stdoutRedirectorThread;
 static HANDLE hSerial;
 static OVERLAPPED serialReadOverlapped = { 0 };
 
+#ifndef ENABLE_VIRTUAL_TERMINAL_INPUT
+#define ENABLE_VIRTUAL_TERMINAL_INPUT 0x0200
+#endif
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
 
 /*
  * Entry point for stdin redirector.
@@ -113,29 +119,35 @@ static HWND GetParentWindow() {
 
 }
 
-int main()
+int main(int argc, const char **argv)
 {
 	DCB dcb;
 	TString device;
 	HWND parent_hwnd = GetParentWindow();
+	SerialSetup setup;
 
-	// Serial port configuration
-	try {
-		SerialSetup setup;
-		if (!setup.ShowConfigureDialog(NULL, parent_hwnd)) {
+	if (argc > 1) {
+		setup.SetPort(argv[1]);
+		if (argc > 2) setup.SetBaudRate(atoi(argv[2]));
+	} else {
+		// Serial port configuration
+		try {
+			if (!setup.ShowConfigureDialog(NULL, parent_hwnd)) {
+				return -1;
+			}
+		}
+		catch (WinAPIException e) {
+			MessageBox(parent_hwnd, e.GetErrorText(), e.GetErrorCaption(), MB_OK | MB_ICONERROR);
 			return -1;
 		}
-		device = _T("\\\\.\\") + setup.GetPort();
-		setup.SaveToDCB(&dcb);
+		catch (SerialSetupException e) {
+			MessageBox(parent_hwnd, e.GetErrorText(), e.GetErrorCaption(), MB_OK | MB_ICONERROR);
+			return -2;
+		}
 	}
-	catch (WinAPIException e) {
-		MessageBox(parent_hwnd, e.GetErrorText(), e.GetErrorCaption(), MB_OK | MB_ICONERROR);
-		return -1;
-	}
-	catch (SerialSetupException e) {
-		MessageBox(parent_hwnd, e.GetErrorText(), e.GetErrorCaption(), MB_OK | MB_ICONERROR);
-		return -2;
-	}
+
+	device = _T("\\\\.\\") + setup.GetPort();
+	setup.SaveToDCB(&dcb);
 
 	// Open serial device
 	hSerial = CreateFile(device.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
@@ -145,7 +157,7 @@ int main()
 		return -4;
 	}
 
-	TString title = _T("SimpleCom: ") + device;
+	TString title = _T("SimpleCom: ") + setup.GetPort();
 	SetConsoleTitle(title.c_str());
 
 	SetCommState(hSerial, &dcb);

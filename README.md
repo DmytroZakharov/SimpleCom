@@ -10,6 +10,10 @@ Console app for serial connection.
 4. Operate target device via the console
 5. Press F1 to leave its serial session and to finish SimpleCom
 
+# Start with command-line arguments
+
+You can pass serial port and baud rate to SimpleCom, for example: `SimpleCom.exe COM1 115200`
+
 # How to build
 
 Use [SimpleCom.sln](https://github.com/YaSuenag/SimpleCom/blob/master/SimpleCom.sln) on your Visual Studio.  
